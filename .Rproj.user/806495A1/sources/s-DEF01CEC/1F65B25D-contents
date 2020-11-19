@@ -1,0 +1,48 @@
+library(caret)
+library(keras)
+# Import data
+wdbc_data <- read.csv("wdbc.csv")
+m <- nrow(wdbc_data)
+n <- ncol(wdbc_data)
+# Set input/output
+wdbc_input <- as.matrix(wdbc_data[,3:n])
+wdbc_output <- ifelse(wdbc_data[,2]=="M",1,0)
+# Apply min-max normalization to input
+preprocessParams <- preProcess(wdbc_input, method=c("range"))
+wdbc_input_norm <- predict(preprocessParams, wdbc_input)
+# Split data as testing vs training&validation
+set.seed(5623)
+r <- 0.2
+index_test <- sample(1:m, floor(r*m), replace=FALSE)
+input_test <- wdbc_input_norm[index_test,]
+input_tv <- wdbc_input_norm[-index_test,]
+output_test <- wdbc_output[index_test]
+output_tv <- wdbc_output[-index_test]
+# Build Keras model
+tensorflow::tf$random$set_seed(2956)
+mymodel <- keras_model_sequential()
+# Architecture
+mymodel %>% 
+  layer_dense(units=4, activation = 'relu', input_shape=n-2) %>% 
+  layer_dense(units=5, activation = "relu") %>%
+  layer_dense(units=3, activation = "relu") %>%
+  layer_dense(units=1, activation = "sigmoid")
+# Compilation Info
+mymodel %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = "adam",
+  metrics = c("accuracy")
+)
+# Training the model
+my_history <- mymodel %>% fit(
+  input_tv, 
+  output_tv, 
+  epochs = 100, 
+  batch_size = 128,
+  validation_split = 0.15
+)
+# Predicting classes:
+pred_test <- mymodel %>% predict_classes(input_test)
+kmodel_pred_prob <- mymodel %>% predict(input_test)
+c_table <- table(Actual=output_test, Predicted=pred_test)
+print(c_table)

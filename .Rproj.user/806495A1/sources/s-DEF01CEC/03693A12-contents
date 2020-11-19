@@ -1,0 +1,45 @@
+library(keras)
+# Import MNIST dataset
+mnist <- dataset_mnist()
+x_train <- mnist$train$x
+y_train <- mnist$train$y
+x_test <- mnist$test$x
+y_test <- mnist$test$y
+# Reshape 2-dim arrays to vectors
+xv_train <- array_reshape(x_train, c(nrow(x_train), 784))
+xv_test <- array_reshape(x_test, c(nrow(x_test), 784))
+# One-Hot encoding of outputs
+yb_train <- to_categorical(y_train, num_classes=10)
+yb_test <- to_categorical(y_test, num_classes=10)
+# Build Keras Model
+tensorflow::tf$random$set_seed(521)
+mnist_model <- keras_model_sequential() 
+# Architecture
+mnist_model %>% 
+  layer_dense(units = 200, activation = 'relu', input_shape = 784) %>% 
+  layer_dropout(rate = 0.4) %>% 
+  layer_dense(units = 150, activation = 'relu') %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 10, activation = 'softmax')
+#Compilation info
+mnist_model %>% compile(
+  loss = 'categorical_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics = c('accuracy')
+)
+# Training
+mnist_history <- mnist_model %>% fit(
+    xv_train, 
+    yb_train, 
+    epochs = 20, 
+    batch_size = 128, 
+    validation_split = 0.2
+  )
+# Testing the model
+testing_info <- mnist_model %>% evaluate(xv_test, yb_test, verbose=0)
+# Print model accuracy on testing data
+print(testing_info)
+# Create confusion matrix on testing data
+y_pred_test <- mnist_model %>% predict_classes(xv_test)
+ctable <- table(Actual=y_test, Predicted=y_pred_test)
+print(ctable)

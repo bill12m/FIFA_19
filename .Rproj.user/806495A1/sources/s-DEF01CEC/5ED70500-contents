@@ -1,0 +1,62 @@
+library(keras)
+# Import Data
+auto <- read.csv("Auto_Adjusted.csv", stringsAsFactors=FALSE)
+# Separate Input/Output
+auto_input <- as.matrix(auto[,2:8])
+auto_output <- as.matrix(auto[,1])
+# Pre-Processing Data - Min/Max Normalization
+library(caret)
+preprocessParams <- preProcess(auto_input, method=c("range"))
+auto_input_norm <- predict(preprocessParams, auto_input)
+# Split Training&Validation vs Testing
+m <- nrow(auto)
+index <- 1:m 
+r <- 0.15
+set.seed(476)
+index_test <- sample(index, floor(r*m), replace=FALSE)
+input_test <- auto_input_norm[index_test,]
+output_test <- auto_output[index_test,]
+input_tv <- auto_input_norm[-index_test,]
+output_tv <- auto_output[-index_test,]
+# Build Keras model
+tensorflow::tf$random$set_seed(285)
+automodel <- keras_model_sequential()
+# Architecture
+automodel %>% 
+  layer_dense(units=40, activation="relu", input_shape=7) %>% 
+  layer_dense(units=25, activation = "relu") %>% 
+  layer_dense(units=20, activation = "relu") %>% 
+  layer_dense(units=30, activation = "relu") %>% 
+  layer_dense(units=1, activation="relu")
+# Compilation Info
+automodel %>% compile(
+  loss = "mse",
+  optimizer =  "adam", 
+  metrics = c("mean_absolute_error")
+)
+# Training the model
+auto_history <- automodel %>% fit(
+  input_tv,
+  output_tv,
+  epochs = 50,
+  batch_size = 32,
+  validation_split=0.2
+)
+#
+tv_scores <- automodel %>% evaluate(input_tv, output_tv, verbose=0)
+cat("Training & Validation mean absolute error:", tv_scores[2], "\n")
+test_scores <- automodel %>% evaluate(input_test, output_test, verbose=0)
+cat("Testing mean absolute error:", test_scores[2], "\n")
+#
+new_data <- data.frame(cylinders=c(6,8), 
+                       displacement=c(198,250),
+                       horsepower=c(95, 120),
+                       weight=c(2950,3120),
+                       acceleration=c(17,18),
+                       year=c(73,75),
+                       origin=c(1,2))
+new_input <- as.matrix(new_data)
+new_input_norm <- predict(preprocessParams, new_input)
+pred_new_output <- predict(automodel, new_input_norm)
+cat("New outputs:\n",pred_new_output,"\n")
+
